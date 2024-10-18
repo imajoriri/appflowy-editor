@@ -110,11 +110,20 @@ abstract class BlockComponentRendererService {
 class BlockComponentRenderer extends BlockComponentRendererService {
   BlockComponentRenderer({
     required Map<String, BlockComponentBuilder> builders,
+    required this.buildWrapper,
   }) {
     registerAll(builders);
   }
 
   final Map<String, BlockComponentBuilder> _builders = {};
+
+  // wrapper
+  final Widget Function(
+    BuildContext buildContext,
+    Widget child,
+    Node node,
+    BlockComponentContext blockComponentContext,
+  )? buildWrapper;
 
   @override
   Widget build(
@@ -143,11 +152,22 @@ class BlockComponentRenderer extends BlockComponentRendererService {
       }
     }
 
-    return BlockComponentContainer(
+    final child = BlockComponentContainer(
       node: node,
       configuration: builder.configuration,
       builder: (_) => builder.build(blockComponentContext),
     );
+
+    if (buildWrapper != null) {
+      return buildWrapper!(
+        buildContext,
+        child,
+        node,
+        blockComponentContext,
+      );
+    }
+
+    return child;
   }
 
   @override

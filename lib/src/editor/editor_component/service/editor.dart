@@ -46,6 +46,7 @@ class AppFlowyEditor extends StatefulWidget {
     this.disableScrollService = false,
     this.disableAutoScroll = false,
     this.autoScrollEdgeOffset = appFlowyEditorAutoScrollEdgeOffset,
+    this.buildWrapper,
   })  : blockComponentBuilders =
             blockComponentBuilders ?? standardBlockComponentBuilderMap,
         characterShortcutEvents =
@@ -221,6 +222,13 @@ class AppFlowyEditor extends StatefulWidget {
   ///
   final double autoScrollEdgeOffset;
 
+  final Widget Function(
+    BuildContext buildContext,
+    Widget child,
+    Node node,
+    BlockComponentContext blockComponentContext,
+  )? buildWrapper;
+
   @override
   State<AppFlowyEditor> createState() => _AppFlowyEditorState();
 }
@@ -372,6 +380,7 @@ class _AppFlowyEditorState extends State<AppFlowyEditor> {
 
   BlockComponentRendererService get _renderer => BlockComponentRenderer(
         builders: {...widget.blockComponentBuilders},
+        buildWrapper: widget.buildWrapper,
       );
 }
 
