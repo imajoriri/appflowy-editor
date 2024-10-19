@@ -8,7 +8,7 @@ import 'package:appflowy_editor/src/render/selection/mobile_basic_handle.dart';
 import 'package:appflowy_editor/src/render/selection/mobile_collapsed_handle.dart';
 import 'package:appflowy_editor/src/render/selection/mobile_selection_handle.dart';
 import 'package:appflowy_editor/src/service/selection/mobile_selection_gesture.dart';
-import 'package:flutter/material.dart' hide Overlay, OverlayEntry;
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -43,6 +43,7 @@ class MobileSelectionServiceWidget extends StatefulWidget {
     this.selectionColor = const Color.fromARGB(53, 111, 201, 231),
     this.showMagnifier = true,
     this.magnifierSize = const Size(72, 48),
+    this.dropTargetStyle = const AppFlowyDropTargetStyle(),
     required this.child,
   });
 
@@ -56,6 +57,8 @@ class MobileSelectionServiceWidget extends StatefulWidget {
   final bool showMagnifier;
 
   final Size magnifierSize;
+
+  final AppFlowyDropTargetStyle dropTargetStyle;
 
   @override
   State<MobileSelectionServiceWidget> createState() =>
@@ -98,6 +101,8 @@ class _MobileSelectionServiceWidgetState
     context,
     listen: false,
   );
+
+  OverlayEntry? _dropTargetEntry;
 
   @override
   void initState() {
@@ -833,14 +838,109 @@ class _MobileSelectionServiceWidgetState
 
   @override
   void removeDropTarget() {
-    // Do nothing on mobile
+    _dropTargetEntry?.remove();
+    _dropTargetEntry = null;
   }
 
   @override
-  void renderDropTargetForOffset(Offset offset, {DragAreaBuilder? builder}) {
-    // Do nothing on mobile
+  void renderDropTargetForOffset(
+    Offset offset, {
+    DragAreaBuilder? builder,
+  }) {
+    removeDropTarget();
+
+    final node = getNodeInOffset(offset);
+    final selectable = node?.selectable;
+    if (node == null || selectable == null) {
+      return;
+    }
+
+    final blockRect = selectable.getBlockRect();
+    final startOffset = blockRect.topLeft;
+    final endOffset = blockRect.bottomLeft;
+
+    final renderBox = selectable.context.findRenderObject() as RenderBox;
+    final globalStartOffset = renderBox.localToGlobal(startOffset);
+    final globalEndOffset = renderBox.localToGlobal(endOffset);
+
+    final topDistance = (globalStartOffset - offset).distanceSquared;
+    final bottomDistance = (globalEndOffset - offset).distanceSquared;
+
+    final isCloserToStart = topDistance < bottomDistance;
+
+    _dropTargetEntry = OverlayEntry(
+      builder: (context) {
+        if (builder != null) {
+          return builder(
+            context,
+            DragAreaBuilderData(
+              targetNode: node,
+              dragOffset: offset,
+            ),
+          );
+        }
+
+        final overlayRenderBox =
+            Overlay.of(context).context.findRenderObject() as RenderBox;
+        final editorRenderBox =
+            selectable.context.findRenderObject() as RenderBox;
+
+        final editorOffset = editorRenderBox.localToGlobal(
+          Offset.zero,
+          ancestor: overlayRenderBox,
+        );
+
+        final indicatorTop =
+            (isCloserToStart ? startOffset.dy : endOffset.dy) + editorOffset.dy;
+
+        final width = blockRect.topRight.dx - startOffset.dx;
+        return Positioned(
+          top: indicatorTop,
+          left: startOffset.dx + editorOffset.dx,
+          child: Container(
+            height: widget.dropTargetStyle.height,
+            width: width,
+            margin: widget.dropTargetStyle.margin,
+            constraints: widget.dropTargetStyle.constraints,
+            decoration: BoxDecoration(
+              borderRadius:
+                  BorderRadius.circular(widget.dropTargetStyle.borderRadius),
+              color: widget.dropTargetStyle.color,
+            ),
+          ),
+        );
+      },
+    );
+
+    Overlay.of(context).insert(_dropTargetEntry!);
   }
 
   @override
-  DropTargetRenderData? getDropTargetRenderData(Offset offset) => null;
+  DropTargetRenderData? getDropTargetRenderData(Offset offset) {
+    final node = getNodeInOffset(offset);
+    final selectable = node?.selectable;
+    if (selectable == null) {
+      return null;
+    }
+
+    final blockRect = selectable.getBlockRect();
+    final startRect = blockRect.topLeft;
+    final endRect = blockRect.bottomLeft;
+
+    final renderBox = selectable.context.findRenderObject() as RenderBox;
+    final globalStartRect = renderBox.localToGlobal(startRect);
+    final globalEndRect = renderBox.localToGlobal(endRect);
+
+    final topDistance = (globalStartRect - offset).distanceSquared;
+    final bottomDistance = (globalEndRect - offset).distanceSquared;
+
+    final isCloserToStart = topDistance < bottomDistance;
+
+    final dropPath = isCloserToStart ? node?.path : node?.path.next;
+
+    return DropTargetRenderData(
+      dropPath: dropPath ?? node?.path,
+      cursorNode: node,
+    );
+  }
 }
