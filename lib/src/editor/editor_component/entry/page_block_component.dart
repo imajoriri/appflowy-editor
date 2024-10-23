@@ -50,9 +50,11 @@ class PageBlockComponent extends BlockComponentStatelessWidget {
     final editorState = context.read<EditorState>();
     final scrollController = context.read<EditorScrollController?>();
     final items = node.children;
+    const physics = AlwaysScrollableScrollPhysics();
 
     if (scrollController == null || scrollController.shrinkWrap) {
       return SingleChildScrollView(
+        physics: physics,
         child: Builder(
           builder: (context) {
             final scroller = Scrollable.maybeOf(context);
@@ -85,6 +87,7 @@ class PageBlockComponent extends BlockComponentStatelessWidget {
 
       return ScrollablePositionedList.builder(
         shrinkWrap: scrollController.shrinkWrap,
+        physics: physics,
         scrollDirection: Axis.vertical,
         itemCount: items.length + extentCount,
         itemBuilder: (context, index) {
